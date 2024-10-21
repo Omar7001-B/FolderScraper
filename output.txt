@@ -1,0 +1,193 @@
+Directory: E:\Learning\Projects\Cobweb Mod\cobweb-template-1.20\src\main\java\com\example
+--------------------------------------------------
+File: Cobweb.java
+--------------------------------------------------
+package com.example;
+
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
+import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.option.KeyBinding;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+
+public class Cobweb implements ModInitializer {
+	public static final String MOD_ID = "cobweb";
+	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+	private final Map<KeyBinding, Consumer<String>> keyBindings = new HashMap<>();
+
+	private boolean isPlacingCobweb = false;
+	private boolean isPlacingObsidian = false;
+	private int lastSelectedSlot = -1;
+	private boolean hasPlacedCobweb = false;
+	private boolean hasPlacedObsidian = false;
+
+	@Override
+	public void onInitialize() {
+		// Register the keybinding for Cobweb (G key)
+		KeyBinding cobwebBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+				"Place Cobweb",
+				InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_LEFT_ALT,
+				"Falcon"
+		));
+
+		// Register the keybinding for Obsidian (Alt key)
+		KeyBinding obsidianBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+				"Place Obsidian",
+				InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_G,
+				"Falcon"
+		));
+
+		// Add a tick event listener for both keybindings
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			if (cobwebBinding.isPressed()) {
+				if (!isPlacingCobweb) {
+					startPlacing(client, Items.COBWEB, true);
+				}
+				if (!hasPlacedCobweb) {
+					placeBlock(client);
+					hasPlacedCobweb = true;
+				}
+			} else if (isPlacingCobweb) {
+				stopPlacing(client, true);
+			}
+
+			if (obsidianBinding.isPressed()) {
+				if (!isPlacingObsidian) {
+					startPlacing(client, Items.OBSIDIAN, false);
+				}
+				if (!hasPlacedObsidian) {
+					placeBlock(client);
+					hasPlacedObsidian = true;
+				}
+			} else if (isPlacingObsidian) {
+				stopPlacing(client, false);
+			}
+		});
+	}
+
+	// Start placing a block (cobweb or obsidian)
+	private void startPlacing(MinecraftClient client, Item item, boolean isCobweb) {
+		PlayerInventory inventory = client.player.getInventory();
+		lastSelectedSlot = inventory.selectedSlot;
+		int itemSlot = findItemInHotbar(inventory, item);
+
+		if (itemSlot != -1) {
+			inventory.selectedSlot = itemSlot;
+			if (isCobweb) {
+				isPlacingCobweb = true;
+			} else {
+				isPlacingObsidian = true;
+			}
+		}
+	}
+
+	// Stop placing a block and reset the slot
+	private void stopPlacing(MinecraftClient client, boolean isCobweb) {
+		PlayerInventory inventory = client.player.getInventory();
+		inventory.selectedSlot = lastSelectedSlot;
+
+		if (isCobweb) {
+			isPlacingCobweb = false;
+			hasPlacedCobweb = false;
+		} else {
+			isPlacingObsidian = false;
+			hasPlacedObsidian = false;
+		}
+	}
+
+	// Place the block (cobweb or obsidian)
+	public void placeBlock(MinecraftClient client) {
+		if (client.player == null || client.world == null) {
+			return;
+		}
+
+		BlockHitResult hitResult = getPlayerLookTarget(client);
+
+		if (hitResult != null && hitResult.getType() == HitResult.Type.BLOCK) {
+			client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hitResult);
+			client.player.swingHand(Hand.MAIN_HAND);
+		}
+	}
+
+	// Find the item in the hotbar
+	private int findItemInHotbar(PlayerInventory inventory, Item item) {
+		for (int i = 0; i < 9; i++) {
+			ItemStack stack = inventory.getStack(i);
+			if (stack.getItem() == item) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	// Get the block the player is looking at
+	private BlockHitResult getPlayerLookTarget(MinecraftClient client) {
+		Vec3d cameraPos = client.player.getCameraPosVec(1.0F);
+		Vec3d lookVec = client.player.getRotationVec(1.0F);
+		Vec3d reachVec = cameraPos.add(lookVec.multiply(client.interactionManager.getReachDistance()));
+
+		return client.world.raycast(new RaycastContext(
+				cameraPos, reachVec,
+				RaycastContext.ShapeType.OUTLINE,
+				RaycastContext.FluidHandling.NONE,
+				client.player
+		));
+	}
+}
+
+==================================================
+File: CobwebDataGenerator.java
+--------------------------------------------------
+package com.example;
+
+import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
+import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
+
+public class CobwebDataGenerator implements DataGeneratorEntrypoint {
+	@Override
+	public void onInitializeDataGenerator(FabricDataGenerator fabricDataGenerator) {
+
+	}
+}
+
+==================================================
+Directory: E:\Learning\Projects\Cobweb Mod\cobweb-template-1.20\src\main\java\com\example\mixin
+--------------------------------------------------
+File: ExampleMixin.java
+--------------------------------------------------
+package com.example.mixin;
+
+import net.minecraft.server.MinecraftServer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(MinecraftServer.class)
+public class ExampleMixin {
+	@Inject(at = @At("HEAD"), method = "loadWorld")
+	private void init(CallbackInfo info) {
+		// This code is injected into the start of MinecraftServer.loadWorld()V
+	}
+}
+==================================================
