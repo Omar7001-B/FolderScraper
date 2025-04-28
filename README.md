@@ -16,7 +16,7 @@ FolderScraper is a Python script designed to recursively scrape and extract the 
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/FolderScraper.git
+   git clone https://github.com/Omar7001-B/FolderScraper.git
    ```
 
 2. Change to the project directory:
